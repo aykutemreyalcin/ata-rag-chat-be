@@ -28,9 +28,22 @@ curl -s http://localhost:8080/health
 
 | Branch | Scope |
 |--------|--------|
-| `be/ingestion-pipeline` | Website crawl + Apps Script pricing ingest |
+| `be/ingestion-pipeline` | Website crawl + Apps Script pricing ingest (**this branch**) |
 | `be/rag-chat-api` | SSE RAG chat + citations |
-| `be/admin-observability` | Admin APIs + metrics hardening |
+| `be/admin-observability` | Admin auth + metrics hardening |
+
+### Ingest endpoints (this branch)
+
+```bash
+# limited crawl via CRAWL_MAX_PAGES (see .env.example)
+curl -X POST http://localhost:8080/api/admin/sync
+curl -X POST http://localhost:8080/api/admin/prices/sync
+curl http://localhost:8080/api/admin/summary
+```
+
+Pricing data comes from `PRICING_API_URL` (Google Apps Script used by
+https://akademiata.pl/kalkulator-czesnego/). Without `OPENAI_API_KEY`, ingest uses
+deterministic hash embeddings so the pipeline still runs locally.
 
 See [jira_tasks.csv](./jira_tasks.csv) for Jira import and [docs/openapi.yaml](./docs/openapi.yaml) for the API contract.
 

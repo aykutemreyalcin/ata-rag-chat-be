@@ -1,23 +1,32 @@
 package com.ata.rag.controller;
 
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.ata.rag.repository.ChunkJdbcRepository;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 @SpringBootTest
 @AutoConfigureMockMvc
+@ActiveProfiles("test")
 class HealthControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
+
+    @MockitoBean
+    private ChunkJdbcRepository chunkJdbcRepository;
 
     @Test
     void healthReturnsOk() throws Exception {
@@ -36,7 +45,17 @@ class HealthControllerTest {
     }
 
     @Test
-    void adminSummaryIsNotImplementedYet() throws Exception {
-        mockMvc.perform(get("/api/admin/summary")).andExpect(status().isNotImplemented());
+    void adminSummaryIsAvailable() throws Exception {
+        when(chunkJdbcRepository.countAll()).thenReturn(0L);
+        when(chunkJdbcRepository.countBySourceType()).thenReturn(Map.of());
+        mockMvc.perform(get("/api/admin/summary"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.page_count").exists())
+                .andExpect(jsonPath("$.chunk_count").value(0));
+    }
+
+    @Test
+    void adminQuestionsStillPending() throws Exception {
+        mockMvc.perform(get("/api/admin/questions")).andExpect(status().isNotImplemented());
     }
 }

@@ -35,6 +35,9 @@ Remove SPA-style `try_files` / Caddy SPA presets — this is an API.
 | `CORS_ALLOWED_ORIGINS` | FE URL, e.g. `https://ata-rag-fe.example.com` |
 | `CRAWL_BASE_URL` | `https://akademiata.pl` |
 | `PRICING_API_URL` | Google Apps Script JSON URL for tuition calculator |
+| `PRICING_CITATION_URL` | `https://akademiata.pl/kalkulator-czesnego/` |
+| `CRAWL_MAX_PAGES` | `0` = unlimited; use small values for smoke crawls |
+| `INGEST_SCHEDULER_ENABLED` | `true`/`false` — nightly website+pricing sync at 03:00 |
 | `OPENAI_API_KEY` | secret |
 | `OPENAI_MODEL` | `gpt-4.1-mini` |
 | `EMBEDDING_MODEL` | `text-embedding-3-small` |

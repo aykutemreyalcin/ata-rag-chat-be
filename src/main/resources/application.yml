@@ -31,12 +31,18 @@ app:
   rag:
     crawl-base-url: ${CRAWL_BASE_URL:https://akademiata.pl}
     pricing-api-url: ${PRICING_API_URL:}
+    pricing-citation-url: ${PRICING_CITATION_URL:https://akademiata.pl/kalkulator-czesnego/}
     openai-api-key: ${OPENAI_API_KEY:}
     openai-model: ${OPENAI_MODEL:gpt-4.1-mini}
     embedding-model: ${EMBEDDING_MODEL:text-embedding-3-small}
+    embedding-dimensions: ${EMBEDDING_DIMENSIONS:1536}
     confidence-threshold: ${CONFIDENCE_THRESHOLD:0.55}
     basic-auth-user: ${BASIC_AUTH_USER:}
     basic-auth-password: ${BASIC_AUTH_PASSWORD:}
+    crawl-max-pages: ${CRAWL_MAX_PAGES:0}
+    crawl-timeout-seconds: ${CRAWL_TIMEOUT_SECONDS:20}
+    scheduler-enabled: ${INGEST_SCHEDULER_ENABLED:true}
+    user-agent: ${CRAWL_USER_AGENT:AkademiaTA-RAG-Bot/1.0}
 
 logging:
   level:
