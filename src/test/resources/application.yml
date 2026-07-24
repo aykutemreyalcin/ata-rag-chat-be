@@ -13,6 +13,16 @@ spring:
   flyway:
     enabled: false
 
+management:
+  prometheus:
+    metrics:
+      export:
+        enabled: true
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus,metrics
+
 app:
   cors:
     allowed-origins: http://localhost:5173
@@ -26,8 +36,8 @@ app:
     embedding-model: text-embedding-3-small
     embedding-dimensions: 1536
     confidence-threshold: 0.55
-    basic-auth-user: ""
-    basic-auth-password: ""
+    basic-auth-user: admin
+    basic-auth-password: test-secret
     crawl-max-pages: 3
     crawl-timeout-seconds: 5
     scheduler-enabled: false

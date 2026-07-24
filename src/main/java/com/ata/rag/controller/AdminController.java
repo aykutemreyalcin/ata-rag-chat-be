@@ -1,44 +1,53 @@
 package com.ata.rag.controller;
 
-import com.ata.rag.ingestion.pipeline.WebsiteSyncService;
-import com.ata.rag.ingestion.pricing.PricingSyncService;
+import com.ata.rag.dto.AdminQuestionsResponse;
+import com.ata.rag.dto.SyncJobResponse;
+import com.ata.rag.ingestion.pipeline.SyncJobService;
 import com.ata.rag.model.CrawlRunEntity;
+import com.ata.rag.repository.ChatAnalyticsRepository;
 import com.ata.rag.repository.ChunkJdbcRepository;
 import com.ata.rag.repository.CrawlRunRepository;
 import com.ata.rag.repository.PageRepository;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import org.springframework.http.HttpStatus;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
 @RestController
 @RequestMapping("/api/admin")
+@Validated
 public class AdminController {
-    private final WebsiteSyncService websiteSyncService;
-    private final PricingSyncService pricingSyncService;
+    private final SyncJobService syncJobService;
     private final PageRepository pageRepository;
     private final ChunkJdbcRepository chunkJdbcRepository;
     private final CrawlRunRepository crawlRunRepository;
+    private final ChatAnalyticsRepository chatAnalyticsRepository;
 
     public AdminController(
-            WebsiteSyncService websiteSyncService,
-            PricingSyncService pricingSyncService,
+            SyncJobService syncJobService,
             PageRepository pageRepository,
             ChunkJdbcRepository chunkJdbcRepository,
-            CrawlRunRepository crawlRunRepository) {
-        this.websiteSyncService = websiteSyncService;
-        this.pricingSyncService = pricingSyncService;
+            CrawlRunRepository crawlRunRepository,
+            ChatAnalyticsRepository chatAnalyticsRepository) {
+        this.syncJobService = syncJobService;
         this.pageRepository = pageRepository;
         this.chunkJdbcRepository = chunkJdbcRepository;
         this.crawlRunRepository = crawlRunRepository;
+        this.chatAnalyticsRepository = chatAnalyticsRepository;
     }
 
     @GetMapping("/summary")
     public Map<String, Object> summary() {
+        ChatAnalyticsRepository.ChatSummary chatSummary = chatAnalyticsRepository.summary();
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("page_count", pageRepository.count());
         body.put("chunk_count", chunkJdbcRepository.countAll());
@@ -56,8 +65,12 @@ public class AdminController {
                         .map(this::serializeRun)
                         .orElse(null));
         body.put("failed_page_count", pageRepository.countByStatus("failed"));
-        body.put("avg_confidence", null);
-        body.put("avg_latency_ms", null);
+        body.put("avg_confidence", chatSummary.averageConfidence());
+        body.put("avg_latency_ms", chatSummary.averageLatencyMs());
+        body.put("total_questions", chatSummary.totalQuestions());
+        body.put("answered_questions", chatSummary.answeredQuestions());
+        body.put("unanswered_questions", chatSummary.unansweredQuestions());
+        body.put("active_sync_job", syncJobService.activeJob());
         return body;
     }
 
@@ -72,22 +85,33 @@ public class AdminController {
     }
 
     @GetMapping("/questions")
-    public void questions() {
-        throw new ResponseStatusException(
-                HttpStatus.NOT_IMPLEMENTED,
-                "Admin questions requires chat_queries from branch be/rag-chat-api / be/admin-observability.");
+    public AdminQuestionsResponse questions(
+            @RequestParam(defaultValue = "10") @Min(1) @Max(100) int limit) {
+        return new AdminQuestionsResponse(
+                chatAnalyticsRepository.topQuestions(limit).stream()
+                        .map(item -> new AdminQuestionsResponse.TopQuestion(
+                                item.question(), item.count()))
+                        .toList(),
+                chatAnalyticsRepository.unanswered(limit).stream()
+                        .map(item -> new AdminQuestionsResponse.UnansweredQuestion(
+                                item.question(), item.createdAt()))
+                        .toList());
     }
 
     @PostMapping("/sync")
-    public Map<String, Object> sync() {
-        CrawlRunEntity run = websiteSyncService.sync();
-        return serializeRun(run);
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    public SyncJobResponse sync() {
+        return syncJobService
+                .submitWebsite()
+                .orElseThrow(() -> alreadyRunning("website"));
     }
 
     @PostMapping("/prices/sync")
-    public Map<String, Object> pricesSync() {
-        CrawlRunEntity run = pricingSyncService.sync();
-        return serializeRun(run);
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    public SyncJobResponse pricesSync() {
+        return syncJobService
+                .submitPricing()
+                .orElseThrow(() -> alreadyRunning("pricing"));
     }
 
     private Map<String, Object> serializeRun(CrawlRunEntity run) {
@@ -103,5 +127,12 @@ public class AdminController {
         body.put("pages_removed", run.getPagesRemoved());
         body.put("error_summary", run.getErrorSummary());
         return body;
+    }
+
+    private ResponseStatusException alreadyRunning(String requestedJob) {
+        return new ResponseStatusException(
+                HttpStatus.CONFLICT,
+                "Cannot start " + requestedJob + " sync while "
+                        + syncJobService.activeJob() + " is running");
     }
 }

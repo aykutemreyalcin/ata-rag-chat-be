@@ -63,8 +63,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AdminSummary"
-        "501":
-          description: Not implemented yet
+        "401":
+          description: Missing or invalid admin credentials
   /api/admin/failed-pages:
     get:
       summary: Failed crawl pages
@@ -80,8 +80,8 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/FailedPage"
-        "501":
-          description: Not implemented yet
+        "401":
+          description: Missing or invalid admin credentials
   /api/admin/questions:
     get:
       summary: Top and unanswered questions
@@ -95,8 +95,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/QuestionsResponse"
-        "501":
-          description: Not implemented yet
+        "401":
+          description: Missing or invalid admin credentials
   /api/admin/sync:
     post:
       summary: Trigger website crawl sync
@@ -106,8 +106,14 @@ paths:
       responses:
         "202":
           description: Sync accepted
-        "501":
-          description: Not implemented yet
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SyncJob"
+        "401":
+          description: Missing or invalid admin credentials
+        "409":
+          description: Another sync job is already running
   /api/admin/prices/sync:
     post:
       summary: Trigger pricing JSON ingest (Apps Script)
@@ -117,8 +123,14 @@ paths:
       responses:
         "202":
           description: Pricing sync accepted
-        "501":
-          description: Not implemented yet
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SyncJob"
+        "401":
+          description: Missing or invalid admin credentials
+        "409":
+          description: Another sync job is already running
 components:
   securitySchemes:
     basicAuth:
@@ -171,6 +183,15 @@ components:
           type: number
         avg_latency_ms:
           type: number
+        total_questions:
+          type: integer
+        answered_questions:
+          type: integer
+        unanswered_questions:
+          type: integer
+        active_sync_job:
+          type: string
+          nullable: true
     CrawlRun:
       type: object
       properties:
@@ -201,6 +222,19 @@ components:
           type: integer
         error_message:
           type: string
+    SyncJob:
+      type: object
+      required: [job, status, submitted_at]
+      properties:
+        job:
+          type: string
+          enum: [website, pricing]
+        status:
+          type: string
+          example: accepted
+        submitted_at:
+          type: string
+          format: date-time
     QuestionsResponse:
       type: object
       properties:

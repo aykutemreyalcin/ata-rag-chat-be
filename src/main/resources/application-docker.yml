@@ -17,6 +17,9 @@ spring:
     locations: classpath:db/migration
 
 logging:
+  structured:
+    format:
+      console: ${CONSOLE_LOG_FORMAT:logstash}
   level:
     com.ata.rag: INFO
     org.springframework.web: INFO

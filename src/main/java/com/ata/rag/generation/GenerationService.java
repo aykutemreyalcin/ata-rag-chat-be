@@ -47,12 +47,22 @@ public class GenerationService {
         try {
             GenerateContentResponse response = vertexModel.generateContent(prompt);
             String text = ResponseHandler.getText(response);
+            Integer promptTokens = response.hasUsageMetadata()
+                    ? response.getUsageMetadata().getPromptTokenCount()
+                    : null;
+            Integer outputTokens = response.hasUsageMetadata()
+                    ? response.getUsageMetadata().getCandidatesTokenCount()
+                    : null;
             log.info(
                     "rag.generation.success model={} latencyMs={} sourceCount={}",
                     vertexProperties.modelName(),
                     elapsedMs(startedNanos),
                     chunks.size());
-            return new GenerationResult(text.strip(), vertexProperties.modelName());
+            return new GenerationResult(
+                    text.strip(),
+                    vertexProperties.modelName(),
+                    promptTokens,
+                    outputTokens);
         } catch (IOException exception) {
             log.warn(
                     "rag.generation.failed model={} latencyMs={} error={}",

@@ -48,8 +48,9 @@ Remove SPA-style `try_files` / Caddy SPA presets — this is an API.
 | `GCP_REGION` | `europe-west1` |
 | `GCP_GEMINI_MODEL` | `gemini-2.5-flash` |
 | `GCP_SERVICE_ACCOUNT_JSON` | encrypted complete service-account JSON |
-| `BASIC_AUTH_USER` | admin basic auth (when admin API lands) |
-| `BASIC_AUTH_PASSWORD` | secret |
+| `CONSOLE_LOG_FORMAT` | `logstash` for JSON production logs |
+| `BASIC_AUTH_USER` | required admin Basic Auth user |
+| `BASIC_AUTH_PASSWORD` | required secret; admin API is locked when unset |
 
 Mark secrets as **encrypted** in Coolify.
 
@@ -65,6 +66,9 @@ For the chat SSE endpoint:
 ```bash
 curl -sS "https://<your-be-host>/health"
 curl -sS "https://<your-be-host>/actuator/health"
+curl -sS "https://<your-be-host>/actuator/prometheus"
+curl -u "$BASIC_AUTH_USER:$BASIC_AUTH_PASSWORD" \
+  "https://<your-be-host>/api/admin/summary"
 curl -N -H 'Content-Type: application/json' \
   -d '{"question":"What is the tuition for Computer Science in Warsaw?"}' \
   "https://<your-be-host>/api/chat"
@@ -73,3 +77,5 @@ curl -N -H 'Content-Type: application/json' \
 Expected: `{"status":"ok","service":"ata-rag-chat-be"}`.
 
 The stream must contain `sources`, `token`, and `done` events.
+Prometheus output must contain `rag_chat_*` metrics after at least one chat
+request. Admin endpoints must return HTTP 401 without valid Basic Auth.
