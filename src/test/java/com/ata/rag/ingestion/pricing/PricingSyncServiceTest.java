@@ -17,6 +17,7 @@ class PricingSyncServiceTest {
                 "https://example.invalid/exec",
                 "https://akademiata.pl/kalkulator-czesnego/",
                 "",
+                "https://api.openai.com/v1",
                 "gpt-4.1-mini",
                 "text-embedding-3-small",
                 1536,

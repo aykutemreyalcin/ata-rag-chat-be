@@ -116,6 +116,44 @@ public class ChunkJdbcRepository {
                 });
     }
 
+    public List<SearchChunk> searchByVector(float[] queryEmbedding, int limit) {
+        return jdbcTemplate.query(
+                """
+                SELECT id, content, section, url, title, source_type,
+                       GREATEST(0.0, 1.0 - (embedding <=> CAST(? AS vector))) AS score
+                FROM chunks
+                ORDER BY embedding <=> CAST(? AS vector)
+                LIMIT ?
+                """,
+                searchChunkMapper(),
+                toVectorLiteral(queryEmbedding),
+                toVectorLiteral(queryEmbedding),
+                limit);
+    }
+
+    public List<SearchChunk> searchLexical(String query, int limit) {
+        return jdbcTemplate.query(
+                """
+                SELECT id, content, section, url, title, source_type,
+                       GREATEST(
+                           0.72,
+                           LEAST(0.98, 0.72 + ts_rank_cd(
+                               to_tsvector('simple', coalesce(title, '') || ' ' || content),
+                               websearch_to_tsquery('simple', ?)
+                           ))
+                       ) AS score
+                FROM chunks
+                WHERE to_tsvector('simple', coalesce(title, '') || ' ' || content)
+                      @@ websearch_to_tsquery('simple', ?)
+                ORDER BY score DESC
+                LIMIT ?
+                """,
+                searchChunkMapper(),
+                query,
+                query,
+                limit);
+    }
+
     private static RowMapper<ExistingChunk> chunkMapper() {
         return (rs, rowNum) -> new ExistingChunk(
                 (UUID) rs.getObject("id"),
@@ -125,6 +163,17 @@ public class ChunkJdbcRepository {
                 rs.getInt("token_count"),
                 rs.getString("language"),
                 rs.getString("title"));
+    }
+
+    private static RowMapper<SearchChunk> searchChunkMapper() {
+        return (rs, rowNum) -> new SearchChunk(
+                (UUID) rs.getObject("id"),
+                rs.getString("content"),
+                rs.getString("section"),
+                rs.getString("url"),
+                rs.getString("title"),
+                rs.getString("source_type"),
+                rs.getDouble("score"));
     }
 
     public static String toVectorLiteral(float[] embedding) {
@@ -148,4 +197,13 @@ public class ChunkJdbcRepository {
             int tokenCount,
             String language,
             String title) {}
+
+    public record SearchChunk(
+            UUID id,
+            String content,
+            String section,
+            String url,
+            String title,
+            String sourceType,
+            double score) {}
 }

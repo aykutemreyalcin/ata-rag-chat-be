@@ -28,8 +28,8 @@ curl -s http://localhost:8080/health
 
 | Branch | Scope |
 |--------|--------|
-| `be/ingestion-pipeline` | Website crawl + Apps Script pricing ingest (**this branch**) |
-| `be/rag-chat-api` | SSE RAG chat + citations |
+| `be/ingestion-pipeline` | Website crawl + Apps Script pricing ingest |
+| `be/rag-chat-api` | SSE RAG chat + citations (**this branch**) |
 | `be/admin-observability` | Admin auth + metrics hardening |
 
 ### Ingest endpoints (this branch)
@@ -44,6 +44,21 @@ curl http://localhost:8080/api/admin/summary
 Pricing data comes from `PRICING_API_URL` (Google Apps Script used by
 https://akademiata.pl/kalkulator-czesnego/). Without `OPENAI_API_KEY`, ingest uses
 deterministic hash embeddings so the pipeline still runs locally.
+
+### RAG chat endpoint
+
+The chat endpoint emits `sources`, one or more `token`, and `done` SSE events:
+
+```bash
+curl -N -H 'Content-Type: application/json' \
+  -d '{"question":"What is the tuition for Computer Science in Warsaw?","top_k":5}' \
+  http://localhost:8080/api/chat
+```
+
+Use `OPENAI_API_KEY` for OpenAI-compatible embeddings and chat generation, or
+enable Vertex AI with `VERTEX_AI_ENABLED=true` and the documented GCP variables.
+Vertex takes precedence for generation. Without either provider, retrieval still
+works and the API returns an extractive grounded answer.
 
 See [jira_tasks.csv](./jira_tasks.csv) for Jira import and [docs/openapi.yaml](./docs/openapi.yaml) for the API contract.
 

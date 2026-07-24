@@ -39,9 +39,15 @@ Remove SPA-style `try_files` / Caddy SPA presets — this is an API.
 | `CRAWL_MAX_PAGES` | `0` = unlimited; use small values for smoke crawls |
 | `INGEST_SCHEDULER_ENABLED` | `true`/`false` — nightly website+pricing sync at 03:00 |
 | `OPENAI_API_KEY` | secret |
+| `OPENAI_BASE_URL` | `https://api.openai.com/v1` or compatible API base |
 | `OPENAI_MODEL` | `gpt-4.1-mini` |
 | `EMBEDDING_MODEL` | `text-embedding-3-small` |
 | `CONFIDENCE_THRESHOLD` | `0.55` |
+| `VERTEX_AI_ENABLED` | `true` to use Vertex Gemini for generation |
+| `GCP_PROJECT_ID` | GCP project containing Vertex AI |
+| `GCP_REGION` | `europe-west1` |
+| `GCP_GEMINI_MODEL` | `gemini-2.5-flash` |
+| `GCP_SERVICE_ACCOUNT_JSON` | encrypted complete service-account JSON |
 | `BASIC_AUTH_USER` | admin basic auth (when admin API lands) |
 | `BASIC_AUTH_PASSWORD` | secret |
 
@@ -49,7 +55,7 @@ Mark secrets as **encrypted** in Coolify.
 
 ## 4. SSE / Traefik notes
 
-When chat SSE is enabled (`be/rag-chat-api`):
+For the chat SSE endpoint:
 
 - Disable response buffering on the reverse proxy for `/api/chat`
 - Keep idle timeouts high enough for long streams
@@ -59,8 +65,11 @@ When chat SSE is enabled (`be/rag-chat-api`):
 ```bash
 curl -sS "https://<your-be-host>/health"
 curl -sS "https://<your-be-host>/actuator/health"
+curl -N -H 'Content-Type: application/json' \
+  -d '{"question":"What is the tuition for Computer Science in Warsaw?"}' \
+  "https://<your-be-host>/api/chat"
 ```
 
 Expected: `{"status":"ok","service":"ata-rag-chat-be"}`.
 
-Chat and admin endpoints return **501** until their feature branches are merged.
+The stream must contain `sources`, `token`, and `done` events.

@@ -33,6 +33,7 @@ app:
     pricing-api-url: ${PRICING_API_URL:}
     pricing-citation-url: ${PRICING_CITATION_URL:https://akademiata.pl/kalkulator-czesnego/}
     openai-api-key: ${OPENAI_API_KEY:}
+    openai-base-url: ${OPENAI_BASE_URL:https://api.openai.com/v1}
     openai-model: ${OPENAI_MODEL:gpt-4.1-mini}
     embedding-model: ${EMBEDDING_MODEL:text-embedding-3-small}
     embedding-dimensions: ${EMBEDDING_DIMENSIONS:1536}
@@ -43,6 +44,12 @@ app:
     crawl-timeout-seconds: ${CRAWL_TIMEOUT_SECONDS:20}
     scheduler-enabled: ${INGEST_SCHEDULER_ENABLED:true}
     user-agent: ${CRAWL_USER_AGENT:AkademiaTA-RAG-Bot/1.0}
+  vertex-ai:
+    enabled: ${VERTEX_AI_ENABLED:false}
+    project-id: ${GCP_PROJECT_ID:}
+    region: ${GCP_REGION:europe-west1}
+    model-name: ${GCP_GEMINI_MODEL:gemini-2.5-flash}
+    credentials-path: ${GOOGLE_APPLICATION_CREDENTIALS:}
 
 logging:
   level:

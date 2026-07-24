@@ -2,9 +2,7 @@ openapi: 3.0.3
 info:
   title: ATA RAG Chat API
   version: 0.1.0
-  description: |
-    Bootstrap contract for akademiata.pl RAG chatbot.
-    Endpoints marked not-implemented return HTTP 501 until feature branches land.
+  description: API contract for the akademiata.pl RAG chatbot.
 servers:
   - url: http://localhost:8080
     description: Local
@@ -35,6 +33,8 @@ paths:
       description: |
         Implemented in branch `be/rag-chat-api`.
         SSE event sequence: `sources` → `token*` → `done`.
+        Low-confidence requests return no sources, a graceful unknown token stream,
+        and `done.answered=false`.
       requestBody:
         required: true
         content:
@@ -48,8 +48,8 @@ paths:
             text/event-stream:
               schema:
                 type: string
-        "501":
-          description: Not implemented yet
+        "400":
+          description: Invalid or unsafe question
   /api/admin/summary:
     get:
       summary: Knowledge-base and retrieval summary
@@ -132,6 +132,7 @@ components:
         question:
           type: string
           minLength: 1
+          maxLength: 2000
         top_k:
           type: integer
           minimum: 1
@@ -139,7 +140,7 @@ components:
           default: 5
     Source:
       type: object
-      required: [title, url]
+      required: [title, url, sourceType, score]
       properties:
         title:
           type: string
@@ -148,6 +149,13 @@ components:
           format: uri
         section:
           type: string
+        sourceType:
+          type: string
+          enum: [html, pdf, pricing]
+        score:
+          type: number
+          minimum: 0
+          maximum: 1
     AdminSummary:
       type: object
       properties:

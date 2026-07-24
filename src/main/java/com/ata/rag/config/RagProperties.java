@@ -8,6 +8,7 @@ public record RagProperties(
         String pricingApiUrl,
         String pricingCitationUrl,
         String openaiApiKey,
+        String openaiBaseUrl,
         String openaiModel,
         String embeddingModel,
         int embeddingDimensions,
@@ -31,6 +32,9 @@ public record RagProperties(
         }
         if (openaiApiKey == null) {
             openaiApiKey = "";
+        }
+        if (openaiBaseUrl == null || openaiBaseUrl.isBlank()) {
+            openaiBaseUrl = "https://api.openai.com/v1";
         }
         if (openaiModel == null || openaiModel.isBlank()) {
             openaiModel = "gpt-4.1-mini";

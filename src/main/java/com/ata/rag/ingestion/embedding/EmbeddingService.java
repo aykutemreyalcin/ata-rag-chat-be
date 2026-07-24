@@ -13,15 +13,18 @@ public class EmbeddingService {
 
     private final EmbeddingClient delegate;
     private final String model;
+    private final boolean semantic;
 
     public EmbeddingService(RagProperties properties, ObjectMapper objectMapper) {
         this.model = properties.embeddingModel();
         if (properties.hasOpenAiKey()) {
             log.info("Using OpenAI embeddings model={}", model);
             this.delegate = new OpenAiEmbeddingClient(properties, objectMapper);
+            this.semantic = true;
         } else {
             log.warn("OPENAI_API_KEY missing — using deterministic hash embeddings for ingest");
             this.delegate = new HashEmbeddingClient(properties);
+            this.semantic = false;
         }
     }
 
@@ -31,5 +34,9 @@ public class EmbeddingService {
 
     public String model() {
         return model;
+    }
+
+    public boolean isSemantic() {
+        return semantic;
     }
 }

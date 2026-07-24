@@ -44,7 +44,8 @@ public class OpenAiEmbeddingClient implements EmbeddingClient {
             String body = objectMapper.writeValueAsString(Map.of(
                     "model", properties.embeddingModel(),
                     "input", batch));
-            HttpRequest request = HttpRequest.newBuilder(URI.create("https://api.openai.com/v1/embeddings"))
+            HttpRequest request = HttpRequest.newBuilder(URI.create(
+                            properties.openaiBaseUrl().replaceAll("/+$", "") + "/embeddings"))
                     .timeout(Duration.ofSeconds(60))
                     .header("Authorization", "Bearer " + properties.openaiApiKey())
                     .header("Content-Type", "application/json")
