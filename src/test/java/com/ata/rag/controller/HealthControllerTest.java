@@ -4,8 +4,10 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.request;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.ata.rag.chat.ChatService;
 import com.ata.rag.repository.ChunkJdbcRepository;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
@@ -16,6 +18,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -28,6 +31,9 @@ class HealthControllerTest {
     @MockitoBean
     private ChunkJdbcRepository chunkJdbcRepository;
 
+    @MockitoBean
+    private ChatService chatService;
+
     @Test
     void healthReturnsOk() throws Exception {
         mockMvc.perform(get("/health"))
@@ -37,11 +43,15 @@ class HealthControllerTest {
     }
 
     @Test
-    void chatIsNotImplementedYet() throws Exception {
+    void chatStartsSseStream() throws Exception {
+        SseEmitter emitter = new SseEmitter();
+        when(chatService.stream("What is tuition for Computer Science?", 5)).thenReturn(emitter);
         mockMvc.perform(post("/api/chat")
                         .contentType(MediaType.APPLICATION_JSON)
+                        .accept(MediaType.TEXT_EVENT_STREAM)
                         .content("{\"question\":\"What is tuition for Computer Science?\"}"))
-                .andExpect(status().isNotImplemented());
+                .andExpect(status().isOk())
+                .andExpect(request().asyncStarted());
     }
 
     @Test
