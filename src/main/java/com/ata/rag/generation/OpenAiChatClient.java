@@ -53,7 +53,18 @@ public class OpenAiChatClient {
             if (text.isBlank()) {
                 throw new IllegalStateException("OpenAI-compatible chat returned an empty answer");
             }
-            return new GenerationResult(text.strip(), properties.openaiModel());
+            JsonNode usage = root.path("usage");
+            Integer promptTokens = usage.has("prompt_tokens")
+                    ? usage.path("prompt_tokens").asInt()
+                    : null;
+            Integer outputTokens = usage.has("completion_tokens")
+                    ? usage.path("completion_tokens").asInt()
+                    : null;
+            return new GenerationResult(
+                    text.strip(),
+                    properties.openaiModel(),
+                    promptTokens,
+                    outputTokens);
         } catch (IOException exception) {
             throw new IllegalStateException("OpenAI-compatible chat request failed", exception);
         } catch (InterruptedException exception) {

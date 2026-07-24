@@ -39,17 +39,20 @@ public class ChatService {
     private final GenerationService generationService;
     private final ChatQueryRepository chatQueryRepository;
     private final RagProperties properties;
+    private final ChatMetrics chatMetrics;
     private final ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
 
     public ChatService(
             RetrievalService retrievalService,
             GenerationService generationService,
             ChatQueryRepository chatQueryRepository,
-            RagProperties properties) {
+            RagProperties properties,
+            ChatMetrics chatMetrics) {
         this.retrievalService = retrievalService;
         this.generationService = generationService;
         this.chatQueryRepository = chatQueryRepository;
         this.properties = properties;
+        this.chatMetrics = chatMetrics;
     }
 
     public SseEmitter stream(String question, int topK) {
@@ -79,6 +82,16 @@ public class ChatService {
 
             streamTokens(emitter, generation.text());
             long latencyMs = elapsedMs(startedNanos);
+            query.setAnswer(generation.text());
+            query.setAnswered(answered);
+            query.setConfidence(retrieval.confidence());
+            query.setRetrievalScore(retrieval.confidence());
+            query.setSourceCount(sources.size());
+            query.setLatencyMs(latencyMs);
+            query.setModel(generation.model());
+            chatQueryRepository.save(query);
+            chatMetrics.record(answered, retrieval.confidence(), latencyMs, generation);
+
             send(
                     emitter,
                     "done",
@@ -88,15 +101,6 @@ public class ChatService {
                             sources.size(),
                             latencyMs,
                             generation.model()));
-
-            query.setAnswer(generation.text());
-            query.setAnswered(answered);
-            query.setConfidence(retrieval.confidence());
-            query.setRetrievalScore(retrieval.confidence());
-            query.setSourceCount(sources.size());
-            query.setLatencyMs(latencyMs);
-            query.setModel(generation.model());
-            chatQueryRepository.save(query);
 
             log.info(
                     "rag.chat.success answered={} confidence={} sourceCount={} latencyMs={} model={}",
@@ -111,7 +115,8 @@ public class ChatService {
             query.setAnswered(false);
             query.setLatencyMs(latencyMs);
             query.setErrorMessage(truncate(exception.getMessage()));
-            chatQueryRepository.save(query);
+            safeSave(query);
+            chatMetrics.recordFailure(latencyMs);
             log.error("rag.chat.failed latencyMs={}", latencyMs, exception);
             try {
                 send(emitter, "error", Map.of(
@@ -175,6 +180,16 @@ public class ChatService {
             return null;
         }
         return value.length() > 2_000 ? value.substring(0, 2_000) : value;
+    }
+
+    private void safeSave(ChatQueryEntity query) {
+        try {
+            chatQueryRepository.save(query);
+        } catch (RuntimeException persistenceError) {
+            log.error(
+                    "rag.chat.query_log_failed error={}",
+                    persistenceError.getMessage());
+        }
     }
 
     @PreDestroy
