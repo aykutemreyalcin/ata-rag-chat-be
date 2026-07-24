@@ -1,0 +1,25 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:ata_rag;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    open-in-view: false
+  flyway:
+    enabled: false
+
+app:
+  cors:
+    allowed-origins: http://localhost:5173
+  rag:
+    crawl-base-url: https://akademiata.pl
+    pricing-api-url: ""
+    openai-api-key: ""
+    openai-model: gpt-4.1-mini
+    embedding-model: text-embedding-3-small
+    confidence-threshold: 0.55
+    basic-auth-user: ""
+    basic-auth-password: ""

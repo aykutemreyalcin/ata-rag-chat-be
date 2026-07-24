@@ -1,0 +1,217 @@
+openapi: 3.0.3
+info:
+  title: ATA RAG Chat API
+  version: 0.1.0
+  description: |
+    Bootstrap contract for akademiata.pl RAG chatbot.
+    Endpoints marked not-implemented return HTTP 501 until feature branches land.
+servers:
+  - url: http://localhost:8080
+    description: Local
+paths:
+  /health:
+    get:
+      summary: Coolify / Traefik health probe
+      operationId: health
+      responses:
+        "200":
+          description: Service is up
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, service]
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  service:
+                    type: string
+                    example: ata-rag-chat-be
+  /api/chat:
+    post:
+      summary: Ask a grounded question (SSE)
+      operationId: chat
+      description: |
+        Implemented in branch `be/rag-chat-api`.
+        SSE event sequence: `sources` → `token*` → `done`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatRequest"
+      responses:
+        "200":
+          description: SSE stream
+          content:
+            text/event-stream:
+              schema:
+                type: string
+        "501":
+          description: Not implemented yet
+  /api/admin/summary:
+    get:
+      summary: Knowledge-base and retrieval summary
+      operationId: adminSummary
+      security:
+        - basicAuth: []
+      responses:
+        "200":
+          description: Summary metrics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminSummary"
+        "501":
+          description: Not implemented yet
+  /api/admin/failed-pages:
+    get:
+      summary: Failed crawl pages
+      operationId: adminFailedPages
+      security:
+        - basicAuth: []
+      responses:
+        "200":
+          description: Failed pages
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/FailedPage"
+        "501":
+          description: Not implemented yet
+  /api/admin/questions:
+    get:
+      summary: Top and unanswered questions
+      operationId: adminQuestions
+      security:
+        - basicAuth: []
+      responses:
+        "200":
+          description: Question analytics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QuestionsResponse"
+        "501":
+          description: Not implemented yet
+  /api/admin/sync:
+    post:
+      summary: Trigger website crawl sync
+      operationId: adminSync
+      security:
+        - basicAuth: []
+      responses:
+        "202":
+          description: Sync accepted
+        "501":
+          description: Not implemented yet
+  /api/admin/prices/sync:
+    post:
+      summary: Trigger pricing JSON ingest (Apps Script)
+      operationId: adminPricesSync
+      security:
+        - basicAuth: []
+      responses:
+        "202":
+          description: Pricing sync accepted
+        "501":
+          description: Not implemented yet
+components:
+  securitySchemes:
+    basicAuth:
+      type: http
+      scheme: basic
+  schemas:
+    ChatRequest:
+      type: object
+      required: [question]
+      properties:
+        question:
+          type: string
+          minLength: 1
+        top_k:
+          type: integer
+          minimum: 1
+          maximum: 20
+          default: 5
+    Source:
+      type: object
+      required: [title, url]
+      properties:
+        title:
+          type: string
+        url:
+          type: string
+          format: uri
+        section:
+          type: string
+    AdminSummary:
+      type: object
+      properties:
+        page_count:
+          type: integer
+        chunk_count:
+          type: integer
+        last_crawl:
+          $ref: "#/components/schemas/CrawlRun"
+        failed_page_count:
+          type: integer
+        avg_confidence:
+          type: number
+        avg_latency_ms:
+          type: number
+    CrawlRun:
+      type: object
+      properties:
+        id:
+          type: string
+        started_at:
+          type: string
+          format: date-time
+        finished_at:
+          type: string
+          format: date-time
+        status:
+          type: string
+        pages_discovered:
+          type: integer
+        pages_updated:
+          type: integer
+        pages_failed:
+          type: integer
+        pages_removed:
+          type: integer
+    FailedPage:
+      type: object
+      properties:
+        url:
+          type: string
+        http_status:
+          type: integer
+        error_message:
+          type: string
+    QuestionsResponse:
+      type: object
+      properties:
+        top_questions:
+          type: array
+          items:
+            type: object
+            properties:
+              question:
+                type: string
+              count:
+                type: integer
+        unanswered:
+          type: array
+          items:
+            type: object
+            properties:
+              question:
+                type: string
+              created_at:
+                type: string
+                format: date-time

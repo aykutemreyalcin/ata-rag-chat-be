@@ -1,0 +1,44 @@
+spring:
+  application:
+    name: ata-rag-chat-be
+  config:
+    import:
+      - optional:file:.env[.properties]
+      - optional:file:.env.local[.properties]
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:local}
+
+server:
+  port: ${SERVER_PORT:8080}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: when_authorized
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
+app:
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
+  rag:
+    crawl-base-url: ${CRAWL_BASE_URL:https://akademiata.pl}
+    pricing-api-url: ${PRICING_API_URL:}
+    openai-api-key: ${OPENAI_API_KEY:}
+    openai-model: ${OPENAI_MODEL:gpt-4.1-mini}
+    embedding-model: ${EMBEDDING_MODEL:text-embedding-3-small}
+    confidence-threshold: ${CONFIDENCE_THRESHOLD:0.55}
+    basic-auth-user: ${BASIC_AUTH_USER:}
+    basic-auth-password: ${BASIC_AUTH_PASSWORD:}
+
+logging:
+  level:
+    com.ata.rag: INFO
+    org.springframework.web: INFO
