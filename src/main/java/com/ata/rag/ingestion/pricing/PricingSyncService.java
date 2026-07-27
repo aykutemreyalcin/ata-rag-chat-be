@@ -19,6 +19,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -117,58 +118,38 @@ public class PricingSyncService {
                 while (cities.hasNext()) {
                     Map.Entry<String, JsonNode> cityEntry = cities.next();
                     String city = cityEntry.getKey();
-                    Iterator<Map.Entry<String, JsonNode>> modes = cityEntry.getValue().fields();
+                    JsonNode cityNode = cityEntry.getValue();
+                    if (cityNode.isArray()) {
+                        // English RAW.en.<city>[] shape with eu/ne semester/year fees.
+                        for (JsonNode row : cityNode) {
+                            documents.add(documentForEnglishRow(citation, language, city, row));
+                        }
+                        continue;
+                    }
+                    if (!cityNode.isObject()) {
+                        continue;
+                    }
+                    Iterator<Map.Entry<String, JsonNode>> modes = cityNode.fields();
                     while (modes.hasNext()) {
                         Map.Entry<String, JsonNode> modeEntry = modes.next();
                         String mode = modeEntry.getKey();
-                        String modeLabel = "s".equals(mode) ? "stacjonarne" : "n".equals(mode) ? "niestacjonarne" : mode;
                         if (!modeEntry.getValue().isArray()) {
                             continue;
                         }
-                        StringBuilder markdown = new StringBuilder();
-                        markdown.append("# Tuition fees\n\n");
-                        markdown.append("Language: ").append(language).append('\n');
-                        markdown.append("City: ").append(cityLabel(city)).append('\n');
-                        markdown.append("Study mode: ").append(modeLabel).append("\n\n");
                         for (JsonNode row : modeEntry.getValue()) {
-                            String programme = text(row, "k");
-                            String specialization = text(row, "s");
-                            int degree = row.path("deg").asInt(0);
-                            markdown.append("## ").append(programme);
-                            if (specialization != null && !specialization.isBlank()) {
-                                markdown.append(" — ").append(specialization);
-                            }
-                            markdown.append('\n');
-                            markdown.append("- Degree cycle: ").append(degree).append('\n');
-                            markdown.append("- Monthly tuition (10 installments): ").append(row.path("r10").asText()).append(" PLN\n");
-                            markdown.append("- Monthly tuition (12 installments): ").append(row.path("r12").asText()).append(" PLN\n");
-                            markdown.append("- Recruitment fee: ").append(row.path("rekr").asText()).append(" PLN\n");
-                            markdown.append("- Enrollment fee (wpisowe): ").append(row.path("wps").asText()).append(" PLN\n");
-                            if (row.hasNonNull("ps")) {
-                                markdown.append("- Programme page: ").append(row.path("ps").asText()).append('\n');
-                            }
-                            markdown.append('\n');
+                            documents.add(documentForPolishRow(citation, language, city, mode, row));
                         }
-                        String md = markdown.toString().trim();
-                        String url = citation + "#raw/" + language + "/" + city + "/" + mode;
-                        documents.add(new ProcessedPage(
-                                url,
-                                "Tuition " + cityLabel(city) + " / " + modeLabel + " / " + language,
-                                md,
-                                LanguageDetector.detect(md),
-                                "pricing",
-                                ContentHashes.sha256(md),
-                                200));
                     }
                 }
             }
         }
 
-        // Keep a compact index document for Computer Science style questions.
         StringBuilder index = new StringBuilder("# Tuition calculator index\n\n");
         index.append("Source: ").append(citation).append("\n\n");
         index.append("Official tuition amounts are ingested from the akademiata.pl calculator JSON ")
-                .append("(RAW/UABY/PROMOS). Example: Informatyka in Warszawa has monthly tuition fields r10/r12.\n");
+                .append("(RAW Polish r10/r12 installments and English eu/ne annual/semester fees).\n");
+        index.append("Example programmes: Informatyka / Computer Engineering, ")
+                .append("Computer networks and cybersecurity in Wrocław.\n");
         String indexMd = index.toString();
         documents.add(new ProcessedPage(
                 citation,
@@ -182,12 +163,150 @@ public class PricingSyncService {
         return documents;
     }
 
+    private ProcessedPage documentForPolishRow(
+            String citation, String language, String city, String mode, JsonNode row) {
+        String modeLabel = modeLabel(mode);
+        String programme = text(row, "k");
+        String specialization = text(row, "s");
+        String title = programmeTitle(programme, specialization);
+        String programmePage = text(row, "ps");
+        String ak = text(row, "ak");
+        int degree = row.path("deg").asInt(0);
+
+        StringBuilder markdown = new StringBuilder();
+        markdown.append("# Tuition — ").append(title).append('\n');
+        markdown.append("City: ").append(cityLabel(city)).append(" (").append(city).append(")\n");
+        markdown.append("Language of calculator: ").append(language).append('\n');
+        markdown.append("Study mode: ").append(modeLabel).append('\n');
+        markdown.append("Degree cycle: ").append(degree).append('\n');
+        if (programme != null) {
+            markdown.append("Programme / field of study: ").append(programme).append('\n');
+        }
+        if (specialization != null) {
+            markdown.append("Specialization: ").append(specialization).append('\n');
+        }
+        appendAmount(markdown, "Monthly tuition (10 installments)", row.path("r10"), "PLN");
+        appendAmount(markdown, "Monthly tuition (12 installments)", row.path("r12"), "PLN");
+        appendAmount(markdown, "Recruitment fee", row.path("rekr"), "PLN");
+        appendAmount(markdown, "Enrollment fee (wpisowe)", row.path("wps"), "PLN");
+        if (programmePage != null) {
+            markdown.append("Programme page: ").append(programmePage).append('\n');
+        }
+        if (ak != null) {
+            markdown.append("Programme key: ").append(ak).append('\n');
+        }
+
+        String md = markdown.toString().trim();
+        String url = programmePage != null && !programmePage.isBlank()
+                ? programmePage
+                : citation + "#raw/" + language + "/" + city + "/" + mode + "/"
+                        + slug(ak != null ? ak : title);
+        return new ProcessedPage(
+                url,
+                "Tuition — " + title + " — " + cityLabel(city) + " (" + modeLabel + ")",
+                md,
+                LanguageDetector.detect(md),
+                "pricing",
+                ContentHashes.sha256(md),
+                200);
+    }
+
+    private ProcessedPage documentForEnglishRow(
+            String citation, String language, String city, JsonNode row) {
+        String programme = text(row, "k");
+        String specialization = text(row, "s");
+        String title = programmeTitle(programme, specialization);
+        String programmePage = text(row, "ps");
+        String ak = text(row, "ak");
+        int degree = row.path("deg").asInt(0);
+
+        StringBuilder markdown = new StringBuilder();
+        markdown.append("# Tuition — ").append(title).append('\n');
+        markdown.append("City: ").append(cityLabel(city)).append(" (").append(city).append(")\n");
+        markdown.append("Language of calculator: ").append(language).append('\n');
+        markdown.append("Study language: English\n");
+        markdown.append("Degree cycle: ").append(degree).append('\n');
+        if (programme != null) {
+            markdown.append("Programme / field of study: ").append(programme).append('\n');
+        }
+        if (specialization != null) {
+            markdown.append("Specialization: ").append(specialization).append('\n');
+        }
+        appendEnglishGroup(markdown, "EU / CIS / Ukraine", row.path("eu"));
+        appendEnglishGroup(markdown, "Other countries", row.path("ne"));
+        appendAmount(markdown, "Recruitment fee", row.path("rekr"), "EUR");
+        appendAmount(markdown, "Enrollment fee (wpisowe)", row.path("wps"), "EUR");
+        if (programmePage != null) {
+            markdown.append("Programme page: ").append(programmePage).append('\n');
+        }
+        if (ak != null) {
+            markdown.append("Programme key: ").append(ak).append('\n');
+        }
+
+        String md = markdown.toString().trim();
+        String url = programmePage != null && !programmePage.isBlank()
+                ? programmePage
+                : citation + "#raw/" + language + "/" + city + "/"
+                        + slug(ak != null ? ak : title);
+        return new ProcessedPage(
+                url,
+                "Tuition — " + title + " — " + cityLabel(city) + " (English)",
+                md,
+                "en",
+                "pricing",
+                ContentHashes.sha256(md),
+                200);
+    }
+
+    private static void appendEnglishGroup(StringBuilder markdown, String label, JsonNode group) {
+        if (group == null || !group.isObject()) {
+            return;
+        }
+        appendAmount(markdown, label + " — annual tuition", group.path("r"), "EUR");
+        appendAmount(markdown, label + " — semester tuition", group.path("s"), "EUR");
+    }
+
+    private static void appendAmount(StringBuilder markdown, String label, JsonNode value, String currency) {
+        if (value == null || value.isNull() || value.isMissingNode()) {
+            return;
+        }
+        String amount = value.asText();
+        if (amount == null || amount.isBlank() || "null".equalsIgnoreCase(amount)) {
+            return;
+        }
+        markdown.append(label).append(": ").append(amount).append(' ').append(currency).append('\n');
+    }
+
+    private static String programmeTitle(String programme, String specialization) {
+        if (programme == null || programme.isBlank()) {
+            return specialization == null || specialization.isBlank() ? "Programme" : specialization;
+        }
+        if (specialization == null || specialization.isBlank()) {
+            return programme;
+        }
+        return programme + " — " + specialization;
+    }
+
+    private static String modeLabel(String mode) {
+        return switch (mode) {
+            case "s" -> "stacjonarne / full-time";
+            case "n" -> "niestacjonarne / part-time";
+            default -> mode;
+        };
+    }
+
     private static String cityLabel(String city) {
         return switch (city) {
             case "wwa" -> "Warszawa";
             case "wro" -> "Wrocław";
             default -> city;
         };
+    }
+
+    private static String slug(String value) {
+        return value.toLowerCase(Locale.ROOT)
+                .replaceAll("[^a-z0-9]+", "-")
+                .replaceAll("(^-|-$)", "");
     }
 
     private static String text(JsonNode node, String field) {

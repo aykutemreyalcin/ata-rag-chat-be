@@ -1,5 +1,6 @@
 package com.ata.rag.controller;
 
+import com.ata.rag.dto.AdminFeedbackResponse;
 import com.ata.rag.dto.AdminQuestionsResponse;
 import com.ata.rag.dto.SyncJobResponse;
 import com.ata.rag.ingestion.pipeline.SyncJobService;
@@ -70,6 +71,9 @@ public class AdminController {
         body.put("total_questions", chatSummary.totalQuestions());
         body.put("answered_questions", chatSummary.answeredQuestions());
         body.put("unanswered_questions", chatSummary.unansweredQuestions());
+        body.put("helpful_count", chatSummary.helpfulCount());
+        body.put("not_helpful_count", chatSummary.notHelpfulCount());
+        body.put("feedback_rate", chatSummary.feedbackRate());
         body.put("active_sync_job", syncJobService.activeJob());
         return body;
     }
@@ -95,6 +99,25 @@ public class AdminController {
                 chatAnalyticsRepository.unanswered(limit).stream()
                         .map(item -> new AdminQuestionsResponse.UnansweredQuestion(
                                 item.question(), item.createdAt()))
+                        .toList());
+    }
+
+    @GetMapping("/feedback")
+    public AdminFeedbackResponse feedback(
+            @RequestParam(defaultValue = "20") @Min(1) @Max(100) int limit) {
+        ChatAnalyticsRepository.ChatSummary chatSummary = chatAnalyticsRepository.summary();
+        return new AdminFeedbackResponse(
+                chatSummary.helpfulCount(),
+                chatSummary.notHelpfulCount(),
+                chatSummary.feedbackRate(),
+                chatAnalyticsRepository.recentFeedback(limit).stream()
+                        .map(item -> new AdminFeedbackResponse.FeedbackItem(
+                                item.id(),
+                                item.question(),
+                                item.answer(),
+                                item.helpful(),
+                                item.createdAt(),
+                                item.feedbackAt()))
                         .toList());
     }
 

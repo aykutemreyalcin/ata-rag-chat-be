@@ -70,13 +70,16 @@ class HealthControllerTest {
         when(chunkJdbcRepository.countAll()).thenReturn(0L);
         when(chunkJdbcRepository.countBySourceType()).thenReturn(Map.of());
         when(chatAnalyticsRepository.summary())
-                .thenReturn(new ChatAnalyticsRepository.ChatSummary(3, 2, 1, 0.75, 120.0));
+                .thenReturn(new ChatAnalyticsRepository.ChatSummary(3, 2, 1, 0.75, 120.0, 1, 0, 1));
         mockMvc.perform(get("/api/admin/summary").with(httpBasic("admin", "test-secret")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.page_count").exists())
                 .andExpect(jsonPath("$.chunk_count").value(0))
                 .andExpect(jsonPath("$.total_questions").value(3))
-                .andExpect(jsonPath("$.avg_confidence").value(0.75));
+                .andExpect(jsonPath("$.avg_confidence").value(0.75))
+                .andExpect(jsonPath("$.helpful_count").value(1))
+                .andExpect(jsonPath("$.not_helpful_count").value(0))
+                .andExpect(jsonPath("$.feedback_rate").value(1.0 / 3.0));
     }
 
     @Test
@@ -99,6 +102,36 @@ class HealthControllerTest {
                 .andExpect(jsonPath("$.top_questions[0].question").value("Tuition?"))
                 .andExpect(jsonPath("$.top_questions[0].count").value(2))
                 .andExpect(jsonPath("$.unanswered[0].question").value("Moon observatory?"));
+    }
+
+    @Test
+    void adminFeedbackReturnsRatedAnswers() throws Exception {
+        when(chatAnalyticsRepository.summary())
+                .thenReturn(new ChatAnalyticsRepository.ChatSummary(4, 3, 1, 0.8, 100.0, 2, 1, 3));
+        when(chatAnalyticsRepository.recentFeedback(20))
+                .thenReturn(List.of(new ChatAnalyticsRepository.FeedbackItem(
+                        java.util.UUID.fromString("11111111-1111-1111-1111-111111111111"),
+                        "Tuition in Wrocław?",
+                        "EU annual tuition is 2600 EUR.",
+                        true,
+                        Instant.parse("2026-07-24T12:00:00Z"),
+                        Instant.parse("2026-07-24T12:01:00Z"))));
+
+        mockMvc.perform(get("/api/admin/feedback").with(httpBasic("admin", "test-secret")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.helpful_count").value(2))
+                .andExpect(jsonPath("$.not_helpful_count").value(1))
+                .andExpect(jsonPath("$.recent[0].question").value("Tuition in Wrocław?"))
+                .andExpect(jsonPath("$.recent[0].helpful").value(true));
+    }
+
+    @Test
+    void chatFeedbackRequiresExistingQuery() throws Exception {
+        mockMvc.perform(post("/api/chat/feedback")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(
+                                "{\"query_id\":\"11111111-1111-1111-1111-111111111111\",\"helpful\":true}"))
+                .andExpect(status().isNotFound());
     }
 
     @Test

@@ -39,6 +39,11 @@ public class ChatQueryEntity {
     @Column(name = "error_message", columnDefinition = "TEXT")
     private String errorMessage;
 
+    private Boolean helpful;
+
+    @Column(name = "feedback_at")
+    private Instant feedbackAt;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
@@ -130,5 +135,21 @@ public class ChatQueryEntity {
 
     public Instant getCreatedAt() {
         return createdAt;
+    }
+
+    public Boolean getHelpful() {
+        return helpful;
+    }
+
+    public void setHelpful(Boolean helpful) {
+        this.helpful = helpful;
+    }
+
+    public Instant getFeedbackAt() {
+        return feedbackAt;
+    }
+
+    public void setFeedbackAt(Instant feedbackAt) {
+        this.feedbackAt = feedbackAt;
     }
 }

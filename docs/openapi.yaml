@@ -50,6 +50,30 @@ paths:
                 type: string
         "400":
           description: Invalid or unsafe question
+  /api/chat/feedback:
+    post:
+      summary: Rate a chat answer as helpful or not helpful
+      operationId: chatFeedback
+      description: |
+        Public idempotent endpoint. Clients may change their vote by posting again
+        with the same query_id.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatFeedbackRequest"
+      responses:
+        "200":
+          description: Feedback saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatFeedbackResponse"
+        "400":
+          description: Invalid payload
+        "404":
+          description: Chat query not found
   /api/admin/summary:
     get:
       summary: Knowledge-base and retrieval summary
@@ -95,6 +119,29 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/QuestionsResponse"
+        "401":
+          description: Missing or invalid admin credentials
+  /api/admin/feedback:
+    get:
+      summary: Helpful / not-helpful answer ratings
+      operationId: adminFeedback
+      security:
+        - basicAuth: []
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        "200":
+          description: Feedback analytics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminFeedback"
         "401":
           description: Missing or invalid admin credentials
   /api/admin/sync:
@@ -189,9 +236,66 @@ components:
           type: integer
         unanswered_questions:
           type: integer
+        helpful_count:
+          type: integer
+        not_helpful_count:
+          type: integer
+        feedback_rate:
+          type: number
+          nullable: true
         active_sync_job:
           type: string
           nullable: true
+    ChatFeedbackRequest:
+      type: object
+      required: [queryId, helpful]
+      properties:
+        queryId:
+          type: string
+          format: uuid
+        helpful:
+          type: boolean
+    ChatFeedbackResponse:
+      type: object
+      properties:
+        query_id:
+          type: string
+          format: uuid
+        helpful:
+          type: boolean
+        feedback_at:
+          type: string
+          format: date-time
+    AdminFeedback:
+      type: object
+      properties:
+        helpful_count:
+          type: integer
+        not_helpful_count:
+          type: integer
+        feedback_rate:
+          type: number
+          nullable: true
+        recent:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+                format: uuid
+              question:
+                type: string
+              answer:
+                type: string
+              helpful:
+                type: boolean
+              created_at:
+                type: string
+                format: date-time
+              feedback_at:
+                type: string
+                format: date-time
     CrawlRun:
       type: object
       properties:

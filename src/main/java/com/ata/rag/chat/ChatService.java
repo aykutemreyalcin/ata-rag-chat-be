@@ -89,13 +89,14 @@ public class ChatService {
             query.setSourceCount(sources.size());
             query.setLatencyMs(latencyMs);
             query.setModel(generation.model());
-            chatQueryRepository.save(query);
+            query = chatQueryRepository.save(query);
             chatMetrics.record(answered, retrieval.confidence(), latencyMs, generation);
 
             send(
                     emitter,
                     "done",
                     new ChatDoneEvent(
+                            query.getId(),
                             retrieval.confidence(),
                             answered,
                             sources.size(),
