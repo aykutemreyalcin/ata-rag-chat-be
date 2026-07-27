@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -19,21 +20,24 @@ class RetrievalServiceTest {
     void lexicalResultWinsAndComputerScienceExpandsToInformatyka() {
         EmbeddingService embeddings = mock(EmbeddingService.class);
         ChunkJdbcRepository chunks = mock(ChunkJdbcRepository.class);
-        when(embeddings.embed(any())).thenReturn(List.of(new float[] {1, 0, 0}));
-        when(chunks.searchByVector(any(), anyInt())).thenReturn(List.of());
+        when(embeddings.isSemantic()).thenReturn(false);
+        ChunkJdbcRepository.SearchChunk pricingChunk = new ChunkJdbcRepository.SearchChunk(
+                UUID.randomUUID(),
+                "## Informatyka\n- Monthly tuition (10 installments): 1000 PLN",
+                "Tuition > Informatyka",
+                "https://akademiata.pl/kalkulator-czesnego/",
+                "ATA Tuition Calculator",
+                "pricing",
+                0.82);
         when(chunks.searchLexical(any(), anyInt()))
                 .thenAnswer(invocation -> {
                     String query = invocation.getArgument(0);
                     assertTrue(query.contains("informatyka"));
-                    return List.of(new ChunkJdbcRepository.SearchChunk(
-                            UUID.randomUUID(),
-                            "## Informatyka\n- Monthly tuition (10 installments): 1000 PLN",
-                            "Tuition > Informatyka",
-                            "https://akademiata.pl/kalkulator-czesnego/",
-                            "ATA Tuition Calculator",
-                            "pricing",
-                            0.82));
+                    assertTrue(query.contains("|"));
+                    return List.of(pricingChunk);
                 });
+        when(chunks.searchLexicalBySourceType(any(), eq("pricing"), anyInt()))
+                .thenReturn(List.of(pricingChunk));
 
         RetrievalResult result =
                 new RetrievalService(embeddings, chunks)
@@ -41,6 +45,39 @@ class RetrievalServiceTest {
 
         assertEquals(1, result.chunks().size());
         assertEquals("pricing", result.chunks().getFirst().sourceType());
-        assertEquals(0.82, result.confidence(), 0.001);
+        assertTrue(result.confidence() >= 0.82);
+    }
+
+    @Test
+    void prefersPricingChunksForTuitionQuestions() {
+        EmbeddingService embeddings = mock(EmbeddingService.class);
+        ChunkJdbcRepository chunks = mock(ChunkJdbcRepository.class);
+        when(embeddings.isSemantic()).thenReturn(false);
+        when(chunks.searchLexical(any(), anyInt())).thenReturn(List.of(
+                new ChunkJdbcRepository.SearchChunk(
+                        UUID.randomUUID(),
+                        "Computer networks and cybersecurity coming soon",
+                        "Offer",
+                        "https://akademiata.pl/en/",
+                        "Offer",
+                        "html",
+                        0.9)));
+        when(chunks.searchLexicalBySourceType(any(), eq("pricing"), anyInt()))
+                .thenReturn(List.of(new ChunkJdbcRepository.SearchChunk(
+                        UUID.randomUUID(),
+                        "Tuition — Computer networks and cybersecurity\nCity: Wrocław\nEU / CIS / Ukraine — annual tuition: 2600 EUR",
+                        "Tuition",
+                        "https://akademiata.pl/en/offer/bachelor/wroclaw-computer-networks-and-cybersecurity/",
+                        "Tuition — Computer networks and cybersecurity",
+                        "pricing",
+                        0.8)));
+
+        RetrievalResult result = new RetrievalService(embeddings, chunks)
+                .retrieve(
+                        "What is the annual tuition for Computer networks and cybersecurity in Wrocław?",
+                        5);
+
+        assertEquals("pricing", result.chunks().getFirst().sourceType());
+        assertTrue(result.chunks().getFirst().content().contains("2600"));
     }
 }

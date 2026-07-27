@@ -139,17 +139,42 @@ public class ChunkJdbcRepository {
                            0.72,
                            LEAST(0.98, 0.72 + ts_rank_cd(
                                to_tsvector('simple', coalesce(title, '') || ' ' || content),
-                               websearch_to_tsquery('simple', ?)
+                               to_tsquery('simple', ?)
                            ))
                        ) AS score
                 FROM chunks
                 WHERE to_tsvector('simple', coalesce(title, '') || ' ' || content)
-                      @@ websearch_to_tsquery('simple', ?)
+                      @@ to_tsquery('simple', ?)
                 ORDER BY score DESC
                 LIMIT ?
                 """,
                 searchChunkMapper(),
                 query,
+                query,
+                limit);
+    }
+
+    public List<SearchChunk> searchLexicalBySourceType(String query, String sourceType, int limit) {
+        return jdbcTemplate.query(
+                """
+                SELECT id, content, section, url, title, source_type,
+                       GREATEST(
+                           0.78,
+                           LEAST(0.99, 0.78 + ts_rank_cd(
+                               to_tsvector('simple', coalesce(title, '') || ' ' || content),
+                               to_tsquery('simple', ?)
+                           ))
+                       ) AS score
+                FROM chunks
+                WHERE source_type = ?
+                  AND to_tsvector('simple', coalesce(title, '') || ' ' || content)
+                      @@ to_tsquery('simple', ?)
+                ORDER BY score DESC
+                LIMIT ?
+                """,
+                searchChunkMapper(),
+                query,
+                sourceType,
                 query,
                 limit);
     }

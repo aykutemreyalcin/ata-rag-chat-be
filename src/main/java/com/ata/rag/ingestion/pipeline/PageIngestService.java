@@ -51,6 +51,14 @@ public class PageIngestService {
         if (page == null) {
             page = new PageEntity();
             page.setUrl(processed.url());
+        } else if ("pricing".equals(page.getSourceType())
+                && !"pricing".equals(processed.sourceType())) {
+            // Programme pages are also used as pricing document URLs. Never let the
+            // website crawl replace official calculator tuition rows with HTML stubs.
+            page.setLastCrawledAt(now);
+            page.setConsecutiveMissCount(0);
+            pageRepository.save(page);
+            return new IngestResult(page.getId(), true, 0, 0, 0);
         }
         page.setTitle(processed.title());
         page.setSourceType(processed.sourceType());
